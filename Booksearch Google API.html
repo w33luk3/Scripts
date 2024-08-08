@@ -22,6 +22,23 @@
             font-weight: bold;
             color: green;
         }
+        #scanner-container {
+            margin-top: 20px;
+            position: relative;
+            display: none; /* Hidden initially */
+        }
+        video {
+            display: block;
+            width: 100%;
+            max-width: 400px;
+            height: auto; /* Adjusts the height proportionally */
+            background-color: black; /* Gives a fallback color */
+        }
+        canvas.drawingBuffer {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
     </style>
 </head>
 <body>
@@ -30,13 +47,74 @@
     <input type="text" id="barcode" placeholder="ISBN" />
     <button onclick="fetchBookInfo()">Get Book Info</button>
 
+    <div id="scanner-container">
+        <button onclick="stopScanner()">Stop Scanning</button>
+        <video id="scanner"></video>
+    </div>
+
+    <button onclick="startScanner()">Scan Barcode</button>
+
     <div class="output" id="output"></div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <script>
+    
+        function startScanner() {
+            const scannerContainer = document.getElementById('scanner-container');
+            const video = document.getElementById('scanner');
+            
+            
+            // Test camera feed
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    video.play();
+                })
+                .catch(function(err) {
+                    console.error('Camera access error:', err);
+                });
+
+            
+            // Make the scanner container visible
+            scannerContainer.style.display = 'block' ;
+
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: video, // This sets the video element as the target
+                    constraints: {
+                        facingMode: "environment" // Use the back camera
+                    },
+                },
+                decoder: {
+                    readers: ["ean_reader", "upc_reader"] // Add other barcode types if needed
+                }
+            }, function (err) {
+                if (err) {
+                    console.error(err);
+                    return;
+                }
+                Quagga.start();
+            });
+
+            Quagga.onDetected(function (result) {
+                const barcode = result.codeResult.code;
+                document.getElementById('barcode').value = barcode;
+                fetchBookInfo();  // Automatically fetch book info once barcode is detected
+                stopScanner();  // Stop the scanner once a barcode is detected
+            });
+        }
+
+        function stopScanner() {
+            Quagga.stop();
+            document.getElementById('scanner-container').style.display = 'none'; // Hide the scanner container
+        }
+
         async function fetchBookInfo() {
             const barcode = document.getElementById('barcode').value;
             if (!barcode) {
-                alert('Please enter a barcode!');
+                alert('Please enter or scan a barcode!');
                 return;
             }
 
