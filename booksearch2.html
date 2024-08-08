@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Information Lookup</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .output {
+            margin-top: 20px;
+        }
+        .output div {
+            margin-bottom: 10px;
+        }
+        .output img {
+            max-width: 200px;
+        }
+        .label {
+            font-weight: bold;
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Book Information Lookup</h1>
+    <label for="barcode">Enter the barcode of the book:</label>
+    <input type="text" id="barcode" placeholder="ISBN" />
+    <button onclick="fetchBookInfo()">Get Book Info</button>
+
+    <div class="output" id="output"></div>
+
+    <script>
+        async function fetchBookInfo() {
+            const barcode = document.getElementById('barcode').value;
+            if (!barcode) {
+                alert('Please enter a barcode!');
+                return;
+            }
+
+            // First search by ISBN
+            const url = `https://www.googleapis.com/books/v1/volumes?q=isbn:${barcode}`;
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                const data = await response.json();
+
+                if (!data.items || data.items.length === 0) {
+                    document.getElementById('output').innerHTML = 'No book found!';
+                    return;
+                }
+
+                // Get the book ID from the first response
+                const bookId = data.items[0].id;
+
+                // Second search by Book ID
+                const url2 = `https://www.googleapis.com/books/v1/volumes/${bookId}`;
+                const response2 = await fetch(url2, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+                const bookData = await response2.json();
+                const bookInfo = bookData.volumeInfo;
+
+                const thumbnail = bookInfo.imageLinks ? bookInfo.imageLinks.thumbnail : '';
+
+                document.getElementById('output').innerHTML = `
+                    <div><span class="label">Title:</span> ${bookInfo.title}</div>
+                    <div><span class="label">Author:</span> ${bookInfo.authors ? bookInfo.authors.join(', ') : 'N/A'}</div>
+                    <div><span class="label">Category:</span> ${bookInfo.categories ? bookInfo.categories.join(', ') : 'N/A'}</div>
+                    <div><span class="label">Language:</span> ${bookInfo.language}</div>
+                    <div><span class="label">Maturity Rating:</span> ${bookInfo.maturityRating}</div>
+                    <div><span class="label">Description:</span> ${bookInfo.description}</div>
+                    ${thumbnail ? `<div><span class="label">Thumbnail:</span><br><img src="${thumbnail}" alt="Book Thumbnail"></div>` : ''}
+                    <div><span class="label">Dimensions:</span> 
+                        Height: ${bookInfo.dimensions ? bookInfo.dimensions.height : 'N/A'} | 
+                        Width: ${bookInfo.dimensions ? bookInfo.dimensions.width : 'N/A'} | 
+                        Thickness: ${bookInfo.dimensions ? bookInfo.dimensions.thickness : 'N/A'}
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error fetching book data:', error);
+                document.getElementById('output').innerHTML = 'An error occurred while fetching book information.';
+            }
+        }
+    </script>
+</body>
+</html>
